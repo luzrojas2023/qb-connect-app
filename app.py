@@ -1,4 +1,4 @@
-
+# app.py
 import os
 from flask import Flask, request, make_response
 import requests
@@ -6,16 +6,16 @@ from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__)
 
-# Required settings (set these in Render → Environment)
+# Read secrets from environment variables (set these in Render → Environment)
 CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 REDIRECT_URI = os.environ.get("REDIRECT_URI")  # e.g., https://qbconnect.irtaero.com/callback
 
-# Optional: set EXPECTED_STATE to a random string you put in the authorize URL.
-# If not set, state validation is skipped.
+# Optional: set EXPECTED_STATE if you want to validate the OAuth "state" value
 EXPECTED_STATE = os.environ.get("EXPECTED_STATE")
 
 TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+
 
 def require_config():
     missing = [k for k, v in {
@@ -50,7 +50,7 @@ def callback():
     code = request.args.get("code")
     state = request.args.get("state")
     realm_id = request.args.get("realmId")
-    dryrun = request.args.get("dryrun") in ("1", "true", "yes") or code == "test"	
+    dryrun = request.args.get("dryrun") in ("1", "true", "yes") or code == "test"
 
     if not (code and state and realm_id):
         return make_response("Missing OAuth params (code, state, realmId).", 400)
@@ -60,7 +60,6 @@ def callback():
         return make_response("State mismatch.", 400)
 
     if dryrun:
-        # Skip Intuit call; just prove the route works.
         html = (
             "<h2>QuickBooks authorization page reached (dry run)</h2>"
             f"<p>realmId={realm_id}</p>"
@@ -69,21 +68,21 @@ def callback():
         return make_response(html, 200)
 
     # Real token exchange
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+    }
+
     try:
-        data = {
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": REDIRECT_URI,
-        }
         resp = requests.post(
             TOKEN_URL,
             data=data,  # form-encoded
             auth=HTTPBasicAuth(CLIENT_ID, CLIENT_SECRET),
             timeout=20,
         )
-     except Exception as e:
+    except Exception as e:
         return make_response(f"Network error contacting Intuit: {e}", 502)
-
 
     if resp.status_code != 200:
         # Common reasons: redirect URI mismatch, expired/used code, wrong keys.
@@ -93,7 +92,8 @@ def callback():
     access_token = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
 
-    # Save securely in production (database, secret manager, etc.)
+    # For now, print to logs. In production, store securely (DB/secret manager).
+    print("Realm ID:", realm_id)
     print("Access Token:", access_token)
     print("Refresh Token:", refresh_token)
 
@@ -102,6 +102,7 @@ def callback():
         "<p>You can close this window now.</p>"
     )
     return make_response(html, 200)
+
 
 if __name__ == "__main__":
     # Local test server (Render uses gunicorn)
