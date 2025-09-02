@@ -4,10 +4,10 @@ from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__)
 
-# Replace these with your Intuit production app credentials
-CLIENT_ID = "ABw4rgJtBnmtDP2PkM4YoQt4ozh062iU4EYGMDF0nvy9mvpA03"
-CLIENT_SECRET = "4XfzT8dJWlMqScJyTVOjXhipzqLiI3lb5s7gDiR7"
-REDIRECT_URI = "https://qbconnect.irtaero.com/callback"
+import os
+CLIENT_ID = os.environ["CLIENT_ID"]
+CLIENT_SECRET = os.environ["CLIENT_SECRET"]
+REDIRECT_URI = os.environ[REDIRECT_URI]
 
 TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 
